@@ -54,16 +54,29 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  double _currentSliderValue = 0;
+  double _inversionRangeSliderValue = 0;
+
+  bool _loadingImage = false;
+  bool _loadingInverted = false;
+  bool _conversionPending = false;
+
   final ImagePicker _picker = ImagePicker();
   File? imageFile;
-  Uint8List? invertedImage;
   img.Image? previewData;
   Uint8List? imagePreview;
   Uint8List? invertedImagePreview;
 
+  void _resetImages() {
+    setState(() {
+      imageFile = null;
+      previewData = null;
+      imagePreview = null;
+      invertedImagePreview = null;
+      _inversionRangeSliderValue = 0;
+    });
+  }
+
   img.Image invertImage(img.Image src, num shiftCoefficient) {
-    log("Preview invert " + shiftCoefficient.toString());
     final pixels = src.getBytes();
 
     int pixelId = -1;
@@ -80,6 +93,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future buildPreview({double width = 0}) async {
+    setState(() { _loadingImage = true; });
     var imageData = img.decodeImage(await imageFile!.readAsBytes());
 
     if (width == 0) width = MediaQuery.of(context).size.width;
@@ -90,27 +104,42 @@ class _MyHomePageState extends State<MyHomePage> {
     imagePreview = Uint8List.fromList(
         img.encodeJpg( previewData! )
     );
+
+    setState(() { _loadingImage = false; });
   }
 
-  invertPreview() {
-    var coefficient = _currentSliderValue / 100;
+  invertPreview() async {
+    setState(() { _loadingInverted = true; });
+
+    var coefficient = _inversionRangeSliderValue / 100;
     var invertedPreview = invertImage(previewData!.clone(), coefficient);
     invertedImagePreview = Uint8List.fromList(
         img.encodeJpg( invertedPreview )
     );
+
+    setState(() { _loadingInverted = false; });
   }
 
   void _loadedImage() async {
     log("Image loaded!");
 
     await buildPreview();
-    invertPreview();
-    // var imageData = img.decodeImage(await imageFile!.readAsBytes());
-    // imageData = invertImage(imageData!, _currentSliderValue);
+    await invertPreview();
+  }
 
-    setState(() {
-      // invertedImage = Uint8List.fromList(img.encodeJpg(imageData!));
-    });
+  Widget _placeholder(Uint8List? imageDataHolder, bool isLoading) {
+    if (imageDataHolder != null) {
+      return Image.memory(
+          imageDataHolder,
+          fit: BoxFit.cover
+      );
+    }
+
+    if (isLoading) {
+      return const CircularProgressIndicator();
+    }
+
+    return  const SizedBox(width: 0, height: 0);
   }
 
   @override
@@ -124,31 +153,14 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: ListView(
           children: <Widget>[
-            imagePreview != null ? Image.memory(
-              imagePreview!,
-              fit: BoxFit.cover
-            ) : const SizedBox(width: 0, height: 0),
+            _placeholder(imagePreview, _loadingImage),
             ElevatedButton(
               onPressed: () async {
                 final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
                 if (image != null) {
+                  _resetImages();
                   setState(() {
                     imageFile = File(image.path);
                     _loadedImage();
@@ -156,17 +168,17 @@ class _MyHomePageState extends State<MyHomePage> {
                 }
                 // Respond to button press
               },
-              child: Text('Open image'),
+              child: const Text('Open image'),
             ),
             Slider(
-              value: _currentSliderValue,
+              value: _inversionRangeSliderValue,
               max: 100,
               min: -100,
               // divisions: 50,
-              label: _currentSliderValue.round().toString(),
+              label: _inversionRangeSliderValue.round().toString(),
               onChanged: invertedImagePreview != null ? (double value) {
                 setState(() {
-                  _currentSliderValue = value;
+                  _inversionRangeSliderValue = value;
                 });
               } : null,
               onChangeEnd: (double value) {
@@ -175,11 +187,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 });
               }
             ),
-            invertedImagePreview != null ?
-            Image.memory(
-                invertedImagePreview!,
-                fit: BoxFit.cover
-            ) : const SizedBox(width: 0, height: 0),
+            _placeholder(invertedImagePreview, _loadingInverted),
           ],
         ),
       )
