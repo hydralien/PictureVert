@@ -54,40 +54,67 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  double _currentSliderValue = 0;
   final ImagePicker _picker = ImagePicker();
   File? imageFile;
   Uint8List? invertedImage;
+  img.Image? previewData;
+  Uint8List? imagePreview;
+  Uint8List? invertedImagePreview;
 
+  img.Image invertImage(img.Image src, num shiftCoefficient) {
+    log("Preview invert " + shiftCoefficient.toString());
+    final pixels = src.getBytes();
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+    int pixelId = -1;
+    while (pixelId < pixels.length - 1) {
+      pixelId += 1;
+      var pixel = pixels[pixelId];
+      if ((pixelId + 1) % 4 == 0) continue; // alpha channel
+      num newPixel = 255 - pixels[pixelId];
+      num difference = pixel - newPixel;
+      pixels[pixelId] = (newPixel + difference * shiftCoefficient).clamp(0, 255).toInt();
+    }
+
+    return src;
   }
 
-  void _loadedImage() {
+  Future buildPreview({double width = 0}) async {
+    var imageData = img.decodeImage(await imageFile!.readAsBytes());
+
+    if (width == 0) width = MediaQuery.of(context).size.width;
+    var coefficient = width / imageData!.width;
+
+    previewData = img.copyResize(imageData, width: width.toInt(), height: (imageData.height * coefficient).toInt());
+
+    imagePreview = Uint8List.fromList(
+        img.encodeJpg( previewData! )
+    );
+  }
+
+  invertPreview() {
+    var coefficient = _currentSliderValue / 100;
+    var invertedPreview = invertImage(previewData!.clone(), coefficient);
+    invertedImagePreview = Uint8List.fromList(
+        img.encodeJpg( invertedPreview )
+    );
+  }
+
+  void _loadedImage() async {
     log("Image loaded!");
-    var imageData = img.decodeImage(imageFile!.readAsBytesSync());
+
+    await buildPreview();
+    invertPreview();
+    // var imageData = img.decodeImage(await imageFile!.readAsBytes());
+    // imageData = invertImage(imageData!, _currentSliderValue);
 
     setState(() {
-      invertedImage = img.copyResize(imageData!, width: 10).getBytes();
+      // invertedImage = Uint8List.fromList(img.encodeJpg(imageData!));
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
@@ -114,8 +141,8 @@ class _MyHomePageState extends State<MyHomePage> {
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            imageFile != null ? Image.file(
-              imageFile!,
+            imagePreview != null ? Image.memory(
+              imagePreview!,
               fit: BoxFit.cover
             ) : const SizedBox(width: 0, height: 0),
             ElevatedButton(
@@ -131,23 +158,31 @@ class _MyHomePageState extends State<MyHomePage> {
               },
               child: Text('Open image'),
             ),
-            const Text(
-              'You have pushed the button this many times:',
+            Slider(
+              value: _currentSliderValue,
+              max: 100,
+              min: -100,
+              // divisions: 50,
+              label: _currentSliderValue.round().toString(),
+              onChanged: invertedImagePreview != null ? (double value) {
+                setState(() {
+                  _currentSliderValue = value;
+                });
+              } : null,
+              onChangeEnd: (double value) {
+                setState(() {
+                  invertPreview();
+                });
+              }
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-            invertedImage != null ?
-            Image.memory(invertedImage!) : const SizedBox(width: 0, height: 0),
+            invertedImagePreview != null ?
+            Image.memory(
+                invertedImagePreview!,
+                fit: BoxFit.cover
+            ) : const SizedBox(width: 0, height: 0),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      )
     );
   }
 }
