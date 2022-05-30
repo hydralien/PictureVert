@@ -2,6 +2,9 @@ import 'dart:io';
 import 'dart:developer';
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
+import 'package:loader_overlay/loader_overlay.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -30,7 +33,9 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.indigo,
       ),
-      home: const MyHomePage(title: 'Picture Negative Conversion'),
+      home: const LoaderOverlay(
+          child: MyHomePage(title: 'Picture Negative Conversion')
+      ),
     );
   }
 }
@@ -56,9 +61,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   double _inversionRangeSliderValue = 0;
 
+  final ScrollController _scrollController = ScrollController();
+
   bool _loadingImage = false;
   bool _loadingInverted = false;
-  bool _conversionPending = false;
+  bool _exportingInverted = false;
 
   final ImagePicker _picker = ImagePicker();
   File? imageFile;
@@ -67,13 +74,18 @@ class _MyHomePageState extends State<MyHomePage> {
   Uint8List? invertedImagePreview;
 
   void _resetImages() {
-    setState(() {
-      imageFile = null;
-      previewData = null;
-      imagePreview = null;
-      invertedImagePreview = null;
-      _inversionRangeSliderValue = 0;
-    });
+    imageFile = null;
+    previewData = null;
+    imagePreview = null;
+    invertedImagePreview = null;
+    _inversionRangeSliderValue = 0;
+  }
+
+  ButtonStyle _buttonStyle() {
+    return TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      textStyle: const TextStyle(fontSize: 20),
+    );
   }
 
   img.Image invertImage(img.Image src, num shiftCoefficient) {
@@ -86,42 +98,80 @@ class _MyHomePageState extends State<MyHomePage> {
       if ((pixelId + 1) % 4 == 0) continue; // alpha channel
       num newPixel = 255 - pixels[pixelId];
       num difference = pixel - newPixel;
-      pixels[pixelId] = (newPixel + difference * shiftCoefficient).clamp(0, 255).toInt();
+      pixels[pixelId] =
+          (newPixel + difference * shiftCoefficient).clamp(0, 255).toInt();
     }
 
     return src;
   }
 
   Future buildPreview({double width = 0}) async {
-    setState(() { _loadingImage = true; });
+    setState(() {
+      _loadingImage = true;
+    });
     var imageData = img.decodeImage(await imageFile!.readAsBytes());
 
     if (width == 0) width = MediaQuery.of(context).size.width;
     var coefficient = width / imageData!.width;
 
-    previewData = img.copyResize(imageData, width: width.toInt(), height: (imageData.height * coefficient).toInt());
+    previewData = img.copyResize(imageData,
+        width: width.toInt(), height: (imageData.height * coefficient).toInt());
 
-    imagePreview = Uint8List.fromList(
-        img.encodeJpg( previewData! )
-    );
-
-    setState(() { _loadingImage = false; });
+    setState(() {
+      imagePreview = Uint8List.fromList(img.encodeJpg(previewData!));
+      _loadingImage = false;
+    });
   }
 
-  invertPreview() async {
-    setState(() { _loadingInverted = true; });
+  Future invertPreview() async {
+    setState(() {
+      _loadingInverted = true;
+    });
 
     var coefficient = _inversionRangeSliderValue / 100;
     var invertedPreview = invertImage(previewData!.clone(), coefficient);
-    invertedImagePreview = Uint8List.fromList(
-        img.encodeJpg( invertedPreview )
-    );
 
-    setState(() { _loadingInverted = false; });
+    return setState(() {
+      invertedImagePreview = Uint8List.fromList(img.encodeJpg(invertedPreview));
+      _loadingInverted = false;
+    });
   }
 
-  void _loadedImage() async {
-    log("Image loaded!");
+  void exportInvertedImage() async {
+    context.loaderOverlay.show();
+    setState(() {
+      _exportingInverted = true;
+    });
+
+    try {
+      var imageData = img.decodeImage(await imageFile!.readAsBytes());
+      var invertedData = invertImage(imageData!, _inversionRangeSliderValue);
+      var invertedJpeg = Uint8List.fromList(img.encodeJpg(invertedData));
+
+      Directory tempDir = await getTemporaryDirectory();
+      String tempPath = tempDir.path;
+      String filePath = '$tempPath/__pictureVertInvertedImage.jpg';
+
+      File outputFile = File(filePath);
+      await outputFile.writeAsBytes(invertedJpeg);
+
+      await Share.shareFiles([filePath], text: 'Inverted picture');
+    } finally {
+      setState(() {
+        _exportingInverted = false;
+      });
+      context.loaderOverlay.hide();
+    }
+  }
+
+  void _loadedImage(XFile? image) async {
+    if (image == null) return;
+
+    setState(() {
+      _resetImages();
+    });
+
+    imageFile = File(image.path);
 
     await buildPreview();
     await invertPreview();
@@ -129,17 +179,19 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget _placeholder(Uint8List? imageDataHolder, bool isLoading) {
     if (imageDataHolder != null) {
-      return Image.memory(
-          imageDataHolder,
-          fit: BoxFit.cover
-      );
+      return Image.memory(imageDataHolder, fit: BoxFit.cover);
     }
 
     if (isLoading) {
-      return const CircularProgressIndicator();
+      return Container(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: const [CircularProgressIndicator()],
+            mainAxisAlignment: MainAxisAlignment.center,
+          ));
     }
 
-    return  const SizedBox(width: 0, height: 0);
+    return const SizedBox(width: 0, height: 0);
   }
 
   @override
@@ -150,47 +202,78 @@ class _MyHomePageState extends State<MyHomePage> {
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: ListView(
-          children: <Widget>[
-            _placeholder(imagePreview, _loadingImage),
-            ElevatedButton(
-              onPressed: () async {
-                final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-                if (image != null) {
-                  _resetImages();
-                  setState(() {
-                    imageFile = File(image.path);
-                    _loadedImage();
-                  });
-                }
-                // Respond to button press
-              },
-              child: const Text('Open image'),
-            ),
-            Slider(
+      body: ListView(
+        controller: _scrollController,
+        cacheExtent: 5000,
+        // physics: _loadingInverted ? const NeverScrollableScrollPhysics() : const AlwaysScrollableScrollPhysics(),
+        children: <Widget>[
+          _placeholder(imagePreview, _loadingImage),
+          Slider(
               value: _inversionRangeSliderValue,
               max: 100,
               min: -100,
               // divisions: 50,
               label: _inversionRangeSliderValue.round().toString(),
-              onChanged: invertedImagePreview != null ? (double value) {
-                setState(() {
-                  _inversionRangeSliderValue = value;
-                });
-              } : null,
+              onChanged: invertedImagePreview != null
+                  ? (double value) {
+                      setState(() {
+                        _loadingInverted = true;
+                        _inversionRangeSliderValue = value;
+                      });
+                    }
+                  : null,
               onChangeEnd: (double value) {
-                setState(() {
-                  invertPreview();
+                // setState(() {
+                invertPreview().then((value) {
+                  if (_scrollController.offset != 500) {
+                    _scrollController.animateTo(500,
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.fastOutSlowIn);
+                  }
                 });
-              }
+                // });
+              }),
+          // Image.memory(invertedImagePreview!, fit: BoxFit.cover),
+          _placeholder(invertedImagePreview, _loadingInverted),
+        ],
+      ),
+      persistentFooterButtons: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: () async {
+                final XFile? image =
+                    await _picker.pickImage(source: ImageSource.camera);
+                _loadedImage(image);
+              },
+              color: Colors.indigoAccent,
+              icon: const Icon(
+                Icons.camera_alt_rounded,
+                size: 30.0,
+              ),
+              tooltip: 'Take a photo',
             ),
-            _placeholder(invertedImagePreview, _loadingInverted),
+            IconButton(
+              onPressed: () async {
+                final XFile? image =
+                    await _picker.pickImage(source: ImageSource.gallery);
+                _loadedImage(image);
+                // Respond to button press
+              },
+              tooltip: 'Open image',
+              color: Colors.indigoAccent,
+              icon: const Icon(Icons.image_rounded, size: 30.0),
+            ),
+            IconButton(
+              onPressed: invertedImagePreview != null ? exportInvertedImage : null,
+              tooltip: "Export image",
+              color: Colors.indigoAccent,
+              icon: const Icon(Icons.save_alt_outlined, size: 30.0),
+            )
           ],
-        ),
-      )
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        )
+      ],
     );
   }
 }

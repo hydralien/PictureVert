@@ -47,5 +47,7 @@
     <string>Get images to invert</string>
     <key>NSCameraUsageDescription</key>
     <string>Get image to invert from camera</string>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 </dict>
 </plist>
