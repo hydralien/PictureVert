@@ -155,13 +155,28 @@ class _MyHomePageState extends State<MyHomePage> {
       File outputFile = File(filePath);
       await outputFile.writeAsBytes(invertedJpeg);
 
-      await Share.shareFiles([filePath], text: 'Inverted picture');
-    } finally {
+      await Share.shareFiles([filePath], text: 'Inverted picture').then((value) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Converted image exported'),
+            )
+        );
+      });
+    }
+    catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Export failed'),
+          )
+      );
+    }
+    finally {
       setState(() {
         _exportingInverted = false;
       });
       context.loaderOverlay.hide();
     }
+  }
   }
 
   void _loadedImage(XFile? image) async {
