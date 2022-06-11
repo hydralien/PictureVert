@@ -73,6 +73,10 @@ class _MyHomePageState extends State<MyHomePage> {
   Uint8List? imagePreview;
   Uint8List? invertedImagePreview;
 
+  double inversionCoefficient() {
+    return _inversionRangeSliderValue / 100;
+  }
+
   void _resetImages() {
     imageFile = null;
     previewData = null;
@@ -128,8 +132,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _loadingInverted = true;
     });
 
-    var coefficient = _inversionRangeSliderValue / 100;
-    var invertedPreview = invertImage(previewData!.clone(), coefficient);
+    var invertedPreview = invertImage(previewData!.clone(), inversionCoefficient());
 
     return setState(() {
       invertedImagePreview = Uint8List.fromList(img.encodeJpg(invertedPreview));
@@ -139,13 +142,14 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void exportInvertedImage() async {
     context.loaderOverlay.show();
-    setState(() {
-      _exportingInverted = true;
-    });
 
     try {
+      setState(() {
+        _exportingInverted = true;
+      });
+
       var imageData = img.decodeImage(await imageFile!.readAsBytes());
-      var invertedData = invertImage(imageData!, _inversionRangeSliderValue);
+      var invertedData = invertImage(imageData!, inversionCoefficient());
       var invertedJpeg = Uint8List.fromList(img.encodeJpg(invertedData));
 
       Directory tempDir = await getTemporaryDirectory();
@@ -155,7 +159,8 @@ class _MyHomePageState extends State<MyHomePage> {
       File outputFile = File(filePath);
       await outputFile.writeAsBytes(invertedJpeg);
 
-      await Share.shareFiles([filePath], text: 'Inverted picture').then((value) {
+      await Share.shareFilesWithResult([filePath], text: 'Inverted picture').then((
+          value) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Converted image exported'),
@@ -177,22 +182,26 @@ class _MyHomePageState extends State<MyHomePage> {
       context.loaderOverlay.hide();
     }
   }
-  }
 
   void _loadedImage(XFile? image) async {
     if (image == null) return;
 
-    setState(() {
-      _resetImages();
-    });
+    context.loaderOverlay.show();
+    try {
+      setState(() {
+        _resetImages();
+      });
 
-    imageFile = File(image.path);
+      imageFile = File(image.path);
 
-    await buildPreview();
-    await invertPreview();
+      await buildPreview();
+      await invertPreview();
+    } finally {
+      context.loaderOverlay.hide();
+    }
   }
 
-  Widget _placeholder(Uint8List? imageDataHolder, bool isLoading) {
+  Widget _placeholder(Uint8List? imageDataHolder, bool isLoading, {emptyText=""}) {
     if (imageDataHolder != null) {
       return Image.memory(imageDataHolder, fit: BoxFit.cover);
     }
@@ -206,7 +215,52 @@ class _MyHomePageState extends State<MyHomePage> {
           ));
     }
 
-    return const SizedBox(width: 0, height: 0);
+    return Row(
+      children: [
+        Expanded(child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+              emptyText,
+              style: const TextStyle(fontSize: 22, color: Colors.indigo),
+            textAlign: TextAlign.center,
+          )
+        )
+        )
+      ],
+    );
+    // return const SizedBox(width: 0, height: 0);
+  }
+
+  Widget _slider() {
+    if (imagePreview == null) {
+      return const SizedBox(width: 0, height: 0);
+    }
+
+    return Slider(
+        value: _inversionRangeSliderValue,
+        max: 100,
+        min: -100,
+        // divisions: 50,
+        label: _inversionRangeSliderValue.round().toString(),
+        onChanged: invertedImagePreview != null
+            ? (double value) {
+          setState(() {
+            _loadingInverted = true;
+            _inversionRangeSliderValue = value;
+          });
+        }
+            : null,
+        onChangeEnd: (double value) {
+          // setState(() {
+          invertPreview().then((value) {
+            if (_scrollController.offset != 500) {
+              _scrollController.animateTo(500,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.fastOutSlowIn);
+            }
+          });
+          // });
+        });
   }
 
   @override
@@ -222,32 +276,12 @@ class _MyHomePageState extends State<MyHomePage> {
         cacheExtent: 5000,
         // physics: _loadingInverted ? const NeverScrollableScrollPhysics() : const AlwaysScrollableScrollPhysics(),
         children: <Widget>[
-          _placeholder(imagePreview, _loadingImage),
-          Slider(
-              value: _inversionRangeSliderValue,
-              max: 100,
-              min: -100,
-              // divisions: 50,
-              label: _inversionRangeSliderValue.round().toString(),
-              onChanged: invertedImagePreview != null
-                  ? (double value) {
-                      setState(() {
-                        _loadingInverted = true;
-                        _inversionRangeSliderValue = value;
-                      });
-                    }
-                  : null,
-              onChangeEnd: (double value) {
-                // setState(() {
-                invertPreview().then((value) {
-                  if (_scrollController.offset != 500) {
-                    _scrollController.animateTo(500,
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.fastOutSlowIn);
-                  }
-                });
-                // });
-              }),
+          _placeholder(
+              imagePreview,
+              _loadingImage,
+              emptyText: "Pick photo from the library or take a picture to convert"
+          ),
+          _slider(),
           // Image.memory(invertedImagePreview!, fit: BoxFit.cover),
           _placeholder(invertedImagePreview, _loadingInverted),
         ],
