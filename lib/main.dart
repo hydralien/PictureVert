@@ -141,9 +141,9 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void exportInvertedImage() async {
-    context.loaderOverlay.show();
-
     try {
+      context.loaderOverlay.show();
+
       setState(() {
         _exportingInverted = true;
       });
@@ -184,10 +184,11 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _loadedImage(XFile? image) async {
-    if (image == null) return;
-
-    context.loaderOverlay.show();
     try {
+      if (image == null) return;
+
+      context.loaderOverlay.show();
+
       setState(() {
         _resetImages();
       });
@@ -291,6 +292,7 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             IconButton(
               onPressed: () async {
+                context.loaderOverlay.show();
                 final XFile? image =
                     await _picker.pickImage(source: ImageSource.camera);
                 _loadedImage(image);
@@ -304,6 +306,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             IconButton(
               onPressed: () async {
+                context.loaderOverlay.show();
                 final XFile? image =
                     await _picker.pickImage(source: ImageSource.gallery);
                 _loadedImage(image);
