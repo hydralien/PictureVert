@@ -34,8 +34,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.indigo,
       ),
       home: const LoaderOverlay(
-          child: MyHomePage(title: 'Picture Negative Conversion')
-      ),
+          child: MyHomePage(title: 'Picture Negative Conversion')),
     );
   }
 }
@@ -132,7 +131,8 @@ class _MyHomePageState extends State<MyHomePage> {
       _loadingInverted = true;
     });
 
-    var invertedPreview = invertImage(previewData!.clone(), inversionCoefficient());
+    var invertedPreview =
+        invertImage(previewData!.clone(), inversionCoefficient());
 
     return setState(() {
       invertedImagePreview = Uint8List.fromList(img.encodeJpg(invertedPreview));
@@ -142,8 +142,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void exportInvertedImage() async {
     try {
-      context.loaderOverlay.show();
-
       setState(() {
         _exportingInverted = true;
       });
@@ -159,23 +157,17 @@ class _MyHomePageState extends State<MyHomePage> {
       File outputFile = File(filePath);
       await outputFile.writeAsBytes(invertedJpeg);
 
-      await Share.shareFilesWithResult([filePath], text: 'Inverted picture').then((
-          value) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Converted image exported'),
-            )
-        );
+      await Share.shareFilesWithResult([filePath], text: 'Inverted picture')
+          .then((value) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Converted image exported'),
+        ));
       });
-    }
-    catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Export failed'),
-          )
-      );
-    }
-    finally {
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Export failed'),
+      ));
+    } finally {
       setState(() {
         _exportingInverted = false;
       });
@@ -202,7 +194,8 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  Widget _placeholder(Uint8List? imageDataHolder, bool isLoading, {emptyText=""}) {
+  Widget _placeholder(Uint8List? imageDataHolder, bool isLoading,
+      {emptyText = ""}) {
     if (imageDataHolder != null) {
       return Image.memory(imageDataHolder, fit: BoxFit.cover);
     }
@@ -218,15 +211,14 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Row(
       children: [
-        Expanded(child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(
-              emptyText,
-              style: const TextStyle(fontSize: 22, color: Colors.indigo),
-            textAlign: TextAlign.center,
-          )
-        )
-        )
+        Expanded(
+            child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  emptyText,
+                  style: const TextStyle(fontSize: 22, color: Colors.indigo),
+                  textAlign: TextAlign.center,
+                )))
       ],
     );
     // return const SizedBox(width: 0, height: 0);
@@ -245,11 +237,11 @@ class _MyHomePageState extends State<MyHomePage> {
         label: _inversionRangeSliderValue.round().toString(),
         onChanged: invertedImagePreview != null
             ? (double value) {
-          setState(() {
-            _loadingInverted = true;
-            _inversionRangeSliderValue = value;
-          });
-        }
+                setState(() {
+                  _loadingInverted = true;
+                  _inversionRangeSliderValue = value;
+                });
+              }
             : null,
         onChangeEnd: (double value) {
           // setState(() {
@@ -277,11 +269,9 @@ class _MyHomePageState extends State<MyHomePage> {
         cacheExtent: 5000,
         // physics: _loadingInverted ? const NeverScrollableScrollPhysics() : const AlwaysScrollableScrollPhysics(),
         children: <Widget>[
-          _placeholder(
-              imagePreview,
-              _loadingImage,
-              emptyText: "Pick photo from the library or take a picture to convert"
-          ),
+          _placeholder(imagePreview, _loadingImage,
+              emptyText:
+                  "Pick photo from the library or take a picture to convert"),
           _slider(),
           // Image.memory(invertedImagePreview!, fit: BoxFit.cover),
           _placeholder(invertedImagePreview, _loadingInverted),
@@ -317,7 +307,14 @@ class _MyHomePageState extends State<MyHomePage> {
               icon: const Icon(Icons.image_rounded, size: 30.0),
             ),
             IconButton(
-              onPressed: invertedImagePreview != null ? exportInvertedImage : null,
+              onPressed: invertedImagePreview != null
+                  ? () {
+                      context.loaderOverlay.show();
+                      Future.delayed(const Duration(milliseconds: 50), () {
+                        exportInvertedImage();
+                      });
+                    }
+                  : null,
               tooltip: "Export image",
               color: Colors.indigoAccent,
               icon: const Icon(Icons.save_alt_outlined, size: 30.0),
