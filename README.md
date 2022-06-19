@@ -15,3 +15,6 @@ Instructions at: https://flutter.dev/docs/deployment/ios#review-xcode-project-se
 
 ### Android deployment
 Instructions at https://flutter.dev/docs/deployment/android#build-an-app-bundle
+
+### Making Screenshots
+Facebook library for device frames: https://design.facebook.com/toolsandresources/devices/

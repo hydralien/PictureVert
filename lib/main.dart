@@ -21,6 +21,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'PictureVert',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -157,7 +158,13 @@ class _MyHomePageState extends State<MyHomePage> {
       File outputFile = File(filePath);
       await outputFile.writeAsBytes(invertedJpeg);
 
-      await Share.shareFilesWithResult([filePath], text: 'Inverted picture')
+      final Size size = MediaQuery.of(context).size;
+
+      await Share.shareFilesWithResult(
+        [filePath],
+        text: 'Inverted picture',
+        sharePositionOrigin: Rect.fromLTWH(0, 0, size.width, size.height / 2),
+      )
           .then((value) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Converted image exported'),
