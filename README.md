@@ -2,7 +2,7 @@
 
 ### Picture-what?
 
-![Another screenshot](assets/icon_indigo.png =150x150)
+<img src="assets/icon_bw.png" alt="App logo" width="100">
 
 It's an image colour inverter app, which currently does one thing only: inverts color on a chosen image.
 
