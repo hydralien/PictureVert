@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:developer';
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:loader_overlay/loader_overlay.dart';
@@ -61,7 +60,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   double _inversionRangeSliderValue = 0;
 
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController(keepScrollOffset: true);
 
   bool _loadingImage = false;
   bool _loadingInverted = false;
@@ -116,10 +115,15 @@ class _MyHomePageState extends State<MyHomePage> {
     var imageData = img.decodeImage(await imageFile!.readAsBytes());
 
     if (width == 0) width = MediaQuery.of(context).size.width;
+    width *= 1.5;
     var coefficient = width / imageData!.width;
 
-    previewData = img.copyResize(imageData,
-        width: width.toInt(), height: (imageData.height * coefficient).toInt());
+    previewData = img.copyResize(
+        imageData,
+        width: width.toInt(),
+        height: (imageData.height * coefficient).toInt(),
+      interpolation: img.Interpolation.average
+    );
 
     setState(() {
       imagePreview = Uint8List.fromList(img.encodeJpg(previewData!));
@@ -251,15 +255,20 @@ class _MyHomePageState extends State<MyHomePage> {
               }
             : null,
         onChangeEnd: (double value) {
-          // setState(() {
+          // Dirty brown magic to return the screen to the same position.
+          // For some reason just scrolling back to previous position doesn't work,
+          // so this trick is to scroll down and then back to where it was.
+          var scrollPosition = _scrollController.offset;
           invertPreview().then((value) {
-            if (_scrollController.offset != 500) {
               _scrollController.animateTo(500,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.fastOutSlowIn);
-            }
+                  duration: const Duration(milliseconds: 1),
+                  curve: Curves.fastOutSlowIn).then(
+                      (value) => {
+                        _scrollController.animateTo(scrollPosition,
+                            duration: const Duration(milliseconds: 1),
+                            curve: Curves.fastOutSlowIn)
+              });
           });
-          // });
         });
   }
 
