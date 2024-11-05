@@ -164,8 +164,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
       final Size size = MediaQuery.of(context).size;
 
-      await Share.shareFilesWithResult(
-        [filePath],
+      await Share.shareXFiles(
+        [XFile(filePath)],
         text: 'Inverted picture',
         sharePositionOrigin: Rect.fromLTWH(0, 0, size.width, size.height / 2),
       )
