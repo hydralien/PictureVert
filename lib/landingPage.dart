@@ -269,6 +269,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
       ),
       persistentFooterButtons: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             IconButton(
               onPressed: () async {
@@ -310,7 +311,6 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
               icon: const Icon(Icons.save_alt_outlined, size: 30.0),
             )
           ],
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         )
       ],
     );
