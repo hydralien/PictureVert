@@ -33,15 +33,35 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   final ScrollController _scrollController =
       ScrollController(keepScrollOffset: true);
 
+  late final TabController _tabController;
+
   bool _loadingImage = false;
   bool _loadingInverted = false;
   bool _exportingInverted = false;
+  int _tabIndex = 0;
 
   final ImagePicker _picker = ImagePicker();
   File? imageFile;
   img.Image? previewData;
   Uint8List? imagePreview;
   Uint8List? invertedImagePreview;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _tabIndex = _tabController.index;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   double inversionCoefficient() {
     return _inversionRangeSliderValue / 100;
@@ -188,23 +208,33 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   }
 
   Widget _actionTabs() {
-    late final TabController _tabController =
-        TabController(length: 3, vsync: this);
+    return Column(children: [
+      TabBar(
+        controller: _tabController,
+        tabs: const <Widget>[
+          Tab(
+            icon: Icon(Icons.monochrome_photos),
+          ),
+          Tab(
+            icon: Icon(Icons.image_not_supported),
+          ),
+          Tab(
+            icon: Icon(Icons.star_half),
+          ),
+        ],
+      ),
+    ]);
+  }
 
-    return TabBar(
-      controller: _tabController,
-      tabs: const <Widget>[
-        Tab(
-          icon: Icon(Icons.cloud_outlined),
-        ),
-        Tab(
-          icon: Icon(Icons.beach_access_sharp),
-        ),
-        Tab(
-          icon: Icon(Icons.brightness_5_sharp),
-        ),
-      ],
-    );
+  List<Widget> _actionTabContent() {
+    if (_tabIndex == 0) {
+      return [
+        _slider(),
+        // Image.memory(invertedImagePreview!, fit: BoxFit.cover),
+        _placeholder(invertedImagePreview, _loadingInverted),
+      ];
+    }
+    return [Icon(Icons.brightness_5_sharp)];
   }
 
   Widget _slider() {
@@ -262,9 +292,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
               emptyText:
                   "Pick photo from the library or take a picture to convert"),
           _actionTabs(),
-          _slider(),
-          // Image.memory(invertedImagePreview!, fit: BoxFit.cover),
-          _placeholder(invertedImagePreview, _loadingInverted),
+          ..._actionTabContent(),
         ],
       ),
       persistentFooterButtons: [
