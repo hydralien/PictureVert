@@ -29,6 +29,7 @@ class PVPage extends StatefulWidget {
 
 class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   double _inversionRangeSliderValue = 0;
+  double _smudgeRangeSliderValue = 50;
 
   final ScrollController _scrollController =
       ScrollController(keepScrollOffset: true);
@@ -36,8 +37,8 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   late final TabController _tabController;
 
   bool _loadingImage = false;
-  bool _loadingInverted = false;
-  bool _exportingInverted = false;
+  bool _loadingProcessed = false;
+  bool _exportingProcessed = false;
   int _tabIndex = 0;
 
   final ImagePicker _picker = ImagePicker();
@@ -45,6 +46,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   img.Image? previewData;
   Uint8List? imagePreview;
   Uint8List? invertedImagePreview;
+  Uint8List? smudgedImagePreview;
 
   @override
   void initState() {
@@ -72,6 +74,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     previewData = null;
     imagePreview = null;
     invertedImagePreview = null;
+    smudgedImagePreview = null;
     _inversionRangeSliderValue = 0;
   }
 
@@ -105,7 +108,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
 
   Future invertPreview() async {
     setState(() {
-      _loadingInverted = true;
+      _loadingProcessed = true;
     });
 
     var invertedPreview =
@@ -113,14 +116,28 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
 
     return setState(() {
       invertedImagePreview = Uint8List.fromList(img.encodeJpg(invertedPreview));
-      _loadingInverted = false;
+      _loadingProcessed = false;
+    });
+  }
+
+  Future smudgePreview() async {
+    setState(() {
+      _loadingProcessed = true;
+    });
+
+    var smudgedPreview = ImageTools.smudgeImage(
+        previewData!.clone(), _smudgeRangeSliderValue, true);
+
+    return setState(() {
+      smudgedImagePreview = Uint8List.fromList(img.encodeJpg(smudgedPreview));
+      _loadingProcessed = false;
     });
   }
 
   void exportInvertedImage() async {
     try {
       setState(() {
-        _exportingInverted = true;
+        _exportingProcessed = true;
       });
 
       var imageData = img.decodeImage(await imageFile!.readAsBytes());
@@ -152,7 +169,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
       ));
     } finally {
       setState(() {
-        _exportingInverted = false;
+        _exportingProcessed = false;
       });
       context.loaderOverlay.hide();
     }
@@ -172,6 +189,9 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
 
       await buildPreview();
       await invertPreview();
+
+      // TODO: calc on tab
+      await smudgePreview();
     } finally {
       context.loaderOverlay.hide();
     }
@@ -229,15 +249,21 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   List<Widget> _actionTabContent() {
     if (_tabIndex == 0) {
       return [
-        _slider(),
+        _inversionSlider(),
         // Image.memory(invertedImagePreview!, fit: BoxFit.cover),
-        _placeholder(invertedImagePreview, _loadingInverted),
+        _placeholder(invertedImagePreview, _loadingProcessed),
+      ];
+    }
+    if (_tabIndex == 1) {
+      return [
+        _smudgeSlider(),
+        _placeholder(smudgedImagePreview, _loadingProcessed),
       ];
     }
     return [Icon(Icons.brightness_5_sharp)];
   }
 
-  Widget _slider() {
+  Widget _inversionSlider() {
     if (imagePreview == null) {
       return const SizedBox(width: 0, height: 0);
     }
@@ -251,7 +277,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
         onChanged: invertedImagePreview != null
             ? (double value) {
                 setState(() {
-                  _loadingInverted = true;
+                  _loadingProcessed = true;
                   _inversionRangeSliderValue = value;
                 });
               }
@@ -262,6 +288,44 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
           // so this trick is to scroll down and then back to where it was.
           var scrollPosition = _scrollController.offset;
           invertPreview().then((value) {
+            _scrollController
+                .animateTo(500,
+                    duration: const Duration(milliseconds: 1),
+                    curve: Curves.fastOutSlowIn)
+                .then((value) => {
+                      _scrollController.animateTo(scrollPosition,
+                          duration: const Duration(milliseconds: 1),
+                          curve: Curves.fastOutSlowIn)
+                    });
+          });
+        });
+  }
+
+  Widget _smudgeSlider() {
+    if (imagePreview == null) {
+      return const SizedBox(width: 0, height: 0);
+    }
+
+    return Slider(
+        value: _smudgeRangeSliderValue,
+        max: 100,
+        min: 0,
+        // divisions: 50,
+        label: _inversionRangeSliderValue.round().toString(),
+        onChanged: smudgedImagePreview != null
+            ? (double value) {
+                setState(() {
+                  _loadingProcessed = true;
+                  _smudgeRangeSliderValue = value;
+                });
+              }
+            : null,
+        onChangeEnd: (double value) {
+          // Dirty brown magic to return the screen to the same position.
+          // For some reason just scrolling back to previous position doesn't work,
+          // so this trick is to scroll down and then back to where it was.
+          var scrollPosition = _scrollController.offset;
+          smudgePreview().then((value) {
             _scrollController
                 .animateTo(500,
                     duration: const Duration(milliseconds: 1),
