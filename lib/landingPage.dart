@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:loader_overlay/loader_overlay.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:picturevert/src/actions.dart';
 import 'package:picturevert/src/image_tools.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -30,6 +31,7 @@ class PVPage extends StatefulWidget {
 class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   double _inversionRangeSliderValue = 0;
   double _smudgeRangeSliderValue = 50;
+  double _mirrorRangeSliderValue = 50;
 
   final ScrollController _scrollController =
       ScrollController(keepScrollOffset: true);
@@ -45,8 +47,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   File? imageFile;
   img.Image? previewData;
   Uint8List? imagePreview;
-  Uint8List? invertedImagePreview;
-  Uint8List? smudgedImagePreview;
+  Uint8List? resultImagePreview;
 
   @override
   void initState() {
@@ -54,8 +55,10 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       setState(() {
+        _resetPreview();
         _tabIndex = _tabController.index;
       });
+      generatePreview();
     });
   }
 
@@ -69,13 +72,17 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     return _inversionRangeSliderValue / 100;
   }
 
+  void _resetPreview() {
+    resultImagePreview = null;
+    _inversionRangeSliderValue = 0;
+    _smudgeRangeSliderValue = 50;
+  }
+
   void _resetImages() {
     imageFile = null;
     previewData = null;
     imagePreview = null;
-    invertedImagePreview = null;
-    smudgedImagePreview = null;
-    _inversionRangeSliderValue = 0;
+    _resetPreview();
   }
 
   ButtonStyle _buttonStyle() {
@@ -106,57 +113,72 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     });
   }
 
-  Future invertPreview() async {
+  Future generatePreview() async {
     setState(() {
       _loadingProcessed = true;
     });
 
-    var invertedPreview =
-        ImageTools.invertImage(previewData!.clone(), inversionCoefficient());
+    final action = currentAction(_tabIndex);
+
+    var pendingPreview = previewData!.clone();
+
+    if (action == ActionType.invert) {
+      pendingPreview =
+          ImageTools.invertImage(previewData!.clone(), inversionCoefficient());
+    }
+    if (action == ActionType.smudge) {
+      pendingPreview = ImageTools.smudgeImage(
+          previewData!.clone(), _smudgeRangeSliderValue, true);
+    }
+    if (action == ActionType.mirror) {
+      pendingPreview = ImageTools.mirrorImage(
+          previewData!.clone(), _mirrorRangeSliderValue, true);
+    }
 
     return setState(() {
-      invertedImagePreview = Uint8List.fromList(img.encodeJpg(invertedPreview));
+      resultImagePreview = Uint8List.fromList(img.encodeJpg(pendingPreview));
       _loadingProcessed = false;
     });
   }
 
-  Future smudgePreview() async {
-    setState(() {
-      _loadingProcessed = true;
-    });
-
-    var smudgedPreview = ImageTools.smudgeImage(
-        previewData!.clone(), _smudgeRangeSliderValue, true);
-
-    return setState(() {
-      smudgedImagePreview = Uint8List.fromList(img.encodeJpg(smudgedPreview));
-      _loadingProcessed = false;
-    });
-  }
-
-  void exportInvertedImage() async {
+  void exportConvertedImage() async {
     try {
       setState(() {
         _exportingProcessed = true;
       });
 
-      var imageData = img.decodeImage(await imageFile!.readAsBytes());
-      var invertedData =
-          ImageTools.invertImage(imageData!, inversionCoefficient());
-      var invertedJpeg = Uint8List.fromList(img.encodeJpg(invertedData));
+      final imageData = img.decodeImage(await imageFile!.readAsBytes());
+      final action = currentAction(_tabIndex);
+
+      var convertedData = imageData!;
+
+      if (action == ActionType.invert) {
+        convertedData =
+            ImageTools.invertImage(imageData!, inversionCoefficient());
+      }
+      if (action == ActionType.smudge) {
+        convertedData =
+            ImageTools.smudgeImage(imageData!, _smudgeRangeSliderValue, true);
+      }
+      if (action == ActionType.mirror) {
+        convertedData =
+            ImageTools.mirrorImage(imageData!, _mirrorRangeSliderValue, true);
+      }
+
+      var convertedJpeg = Uint8List.fromList(img.encodeJpg(convertedData));
 
       Directory tempDir = await getTemporaryDirectory();
       String tempPath = tempDir.path;
-      String filePath = '$tempPath/__pictureVertInvertedImage.jpg';
+      String filePath = '$tempPath/__pictureVertConvertedImage.jpg';
 
       File outputFile = File(filePath);
-      await outputFile.writeAsBytes(invertedJpeg);
+      await outputFile.writeAsBytes(convertedJpeg);
 
       final Size size = MediaQuery.of(context).size;
 
       await Share.shareXFiles(
         [XFile(filePath)],
-        text: 'Inverted picture',
+        text: 'Converted picture',
         sharePositionOrigin: Rect.fromLTWH(0, 0, size.width, size.height / 2),
       ).then((value) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -188,10 +210,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
       imageFile = File(image.path);
 
       await buildPreview();
-      await invertPreview();
-
-      // TODO: calc on tab
-      await smudgePreview();
+      await generatePreview();
     } finally {
       context.loaderOverlay.hide();
     }
@@ -247,20 +266,41 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   }
 
   List<Widget> _actionTabContent() {
-    if (_tabIndex == 0) {
-      return [
-        _inversionSlider(),
-        // Image.memory(invertedImagePreview!, fit: BoxFit.cover),
-        _placeholder(invertedImagePreview, _loadingProcessed),
-      ];
+    final action = currentAction(_tabIndex);
+    final configuration = [];
+
+    if (action == ActionType.invert) {
+      configuration.add(_inversionSlider());
     }
-    if (_tabIndex == 1) {
-      return [
-        _smudgeSlider(),
-        _placeholder(smudgedImagePreview, _loadingProcessed),
-      ];
+    if (action == ActionType.smudge) {
+      configuration.add(_smudgeSlider());
     }
-    return [Icon(Icons.brightness_5_sharp)];
+    if (action == ActionType.mirror) {
+      // _smudgeSlider(),
+    }
+
+    return [
+      ...configuration,
+      _placeholder(resultImagePreview, _loadingProcessed),
+    ];
+  }
+
+  void _sliderPostScroll(double value) {
+    // Dirty brown magic to return the screen to the same position.
+    // For some reason just scrolling back to previous position doesn't work,
+    // so this trick is to scroll down and then back to where it was.
+    var scrollPosition = _scrollController.offset;
+    generatePreview().then((value) {
+      _scrollController
+          .animateTo(500,
+              duration: const Duration(milliseconds: 1),
+              curve: Curves.fastOutSlowIn)
+          .then((value) => {
+                _scrollController.animateTo(scrollPosition,
+                    duration: const Duration(milliseconds: 1),
+                    curve: Curves.fastOutSlowIn)
+              });
+    });
   }
 
   Widget _inversionSlider() {
@@ -274,7 +314,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
         min: -100,
         // divisions: 50,
         label: _inversionRangeSliderValue.round().toString(),
-        onChanged: invertedImagePreview != null
+        onChanged: resultImagePreview != null
             ? (double value) {
                 setState(() {
                   _loadingProcessed = true;
@@ -282,23 +322,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
                 });
               }
             : null,
-        onChangeEnd: (double value) {
-          // Dirty brown magic to return the screen to the same position.
-          // For some reason just scrolling back to previous position doesn't work,
-          // so this trick is to scroll down and then back to where it was.
-          var scrollPosition = _scrollController.offset;
-          invertPreview().then((value) {
-            _scrollController
-                .animateTo(500,
-                    duration: const Duration(milliseconds: 1),
-                    curve: Curves.fastOutSlowIn)
-                .then((value) => {
-                      _scrollController.animateTo(scrollPosition,
-                          duration: const Duration(milliseconds: 1),
-                          curve: Curves.fastOutSlowIn)
-                    });
-          });
-        });
+        onChangeEnd: _sliderPostScroll);
   }
 
   Widget _smudgeSlider() {
@@ -311,8 +335,8 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
         max: 100,
         min: 0,
         // divisions: 50,
-        label: _inversionRangeSliderValue.round().toString(),
-        onChanged: smudgedImagePreview != null
+        label: _smudgeRangeSliderValue.round().toString(),
+        onChanged: resultImagePreview != null
             ? (double value) {
                 setState(() {
                   _loadingProcessed = true;
@@ -320,23 +344,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
                 });
               }
             : null,
-        onChangeEnd: (double value) {
-          // Dirty brown magic to return the screen to the same position.
-          // For some reason just scrolling back to previous position doesn't work,
-          // so this trick is to scroll down and then back to where it was.
-          var scrollPosition = _scrollController.offset;
-          smudgePreview().then((value) {
-            _scrollController
-                .animateTo(500,
-                    duration: const Duration(milliseconds: 1),
-                    curve: Curves.fastOutSlowIn)
-                .then((value) => {
-                      _scrollController.animateTo(scrollPosition,
-                          duration: const Duration(milliseconds: 1),
-                          curve: Curves.fastOutSlowIn)
-                    });
-          });
-        });
+        onChangeEnd: _sliderPostScroll);
   }
 
   @override
@@ -390,11 +398,11 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
               icon: const Icon(Icons.image_rounded, size: 30.0),
             ),
             IconButton(
-              onPressed: invertedImagePreview != null
+              onPressed: resultImagePreview != null
                   ? () {
                       context.loaderOverlay.show();
                       Future.delayed(const Duration(milliseconds: 50), () {
-                        exportInvertedImage();
+                        exportConvertedImage();
                       });
                     }
                   : null,

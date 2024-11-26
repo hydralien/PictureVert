@@ -44,4 +44,28 @@ class ImageTools {
 
     return src;
   }
+
+  static img.Image mirrorImage(
+      img.Image src, num mirrorStartPct, bool horizontal) {
+    final rgbWidth = src.width * 3;
+    final pixels = src.getBytes();
+    final mirrorEdge = (rgbWidth * (mirrorStartPct / 100)).floor();
+
+    int pixelId = -1;
+    while (pixelId < pixels.length - 1) {
+      pixelId += 1;
+      final pastMirror = pixelId > mirrorEdge;
+
+      if (!pastMirror) continue;
+
+      final rgbShift = (mirrorEdge - pixelId).abs() % 3;
+      final sourcePixelId = mirrorEdge - (pixelId - mirrorEdge) - rgbShift;
+
+      if (sourcePixelId < 0) continue;
+
+      pixels[pixelId] = pixels[sourcePixelId];
+    }
+
+    return src;
+  }
 }
