@@ -49,19 +49,20 @@ class ImageTools {
       img.Image src, num mirrorStartPct, bool horizontal) {
     final rgbWidth = src.width * 3;
     final pixels = src.getBytes();
-    final mirrorEdge = (rgbWidth * (mirrorStartPct / 100)).floor();
+    final mirrorEdge = (src.width * (mirrorStartPct / 100)).floor() * 3;
 
     int pixelId = -1;
     while (pixelId < pixels.length - 1) {
       pixelId += 1;
-      final pastMirror = pixelId > mirrorEdge;
+      var pixelLinePos = pixelId % rgbWidth;
+      final pastMirror = pixelLinePos > mirrorEdge;
 
       if (!pastMirror) continue;
 
-      final rgbShift = (mirrorEdge - pixelId).abs() % 3;
-      final sourcePixelId = mirrorEdge - (pixelId - mirrorEdge) - rgbShift;
+      final rgbShift = (mirrorEdge - pixelLinePos).abs() % 4;
+      final sourcePixelId = pixelId - (pixelLinePos - mirrorEdge) - rgbShift;
 
-      if (sourcePixelId < 0) continue;
+      if (sourcePixelId % rgbWidth > pixelId) continue;
 
       pixels[pixelId] = pixels[sourcePixelId];
     }
