@@ -114,6 +114,10 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   }
 
   Future generatePreview() async {
+    if (imagePreview == null) {
+      return;
+    }
+
     setState(() {
       _loadingProcessed = true;
     });

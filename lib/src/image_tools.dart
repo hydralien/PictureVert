@@ -4,26 +4,30 @@ import 'package:image/image.dart' as img;
 
 class ImageTools {
   static img.Image invertImage(img.Image src, num shiftCoefficient) {
-    final pixels = src.getBytes();
+    final pixels = src.getBytes(order: img.ChannelOrder.rgb);
 
     int pixelId = -1;
     while (pixelId < pixels.length - 1) {
       pixelId += 1;
       var pixel = pixels[pixelId];
-      if ((pixelId + 1) % 4 == 0) continue; // alpha channel
+      // if ((pixelId + 1) % 4 == 0) continue; // alpha channel
       num newPixel = 255 - pixels[pixelId];
       num difference = pixel - newPixel;
       pixels[pixelId] =
           (newPixel + difference * shiftCoefficient).clamp(0, 255).toInt();
     }
 
-    return src;
+    return img.Image.fromBytes(
+        width: src.width,
+        height: src.height,
+        order: img.ChannelOrder.rgb,
+        bytes: pixels.buffer);
   }
 
   static img.Image smudgeImage(
       img.Image src, num smudgeStartPct, bool horizontal) {
     final rgbWidth = src.width * 3;
-    final pixels = src.getBytes();
+    final pixels = src.getBytes(order: img.ChannelOrder.rgb);
 
     var rnd = Random();
 
@@ -42,31 +46,50 @@ class ImageTools {
       pixels[pixelId] = pixels[pixelId - 3];
     }
 
-    return src;
+    return img.Image.fromBytes(
+        width: src.width,
+        height: src.height,
+        order: img.ChannelOrder.rgb,
+        bytes: pixels.buffer);
   }
 
   static img.Image mirrorImage(
       img.Image src, num mirrorStartPct, bool horizontal) {
-    final rgbWidth = src.width * 3;
-    final pixels = src.getBytes();
-    final mirrorEdge = (src.width * (mirrorStartPct / 100)).floor() * 3;
+    final pixelSize = 3; // RGB
+    final rgbWidth = src.width * pixelSize;
+    final pixels = src.getBytes(order: img.ChannelOrder.rgb);
+    final mirrorEdge = (src.width * (mirrorStartPct / 100)).floor() * pixelSize;
 
     int pixelId = -1;
     while (pixelId < pixels.length - 1) {
       pixelId += 1;
-      var pixelLinePos = pixelId % rgbWidth;
-      final pastMirror = pixelLinePos > mirrorEdge;
+      final imageId = pixelId + 1;
+      if (imageId % pixelSize != 0) continue; // Not a final element in pixel
+
+      var lineIndex = imageId % rgbWidth;
+      final pastMirror = lineIndex > mirrorEdge;
 
       if (!pastMirror) continue;
 
-      final rgbShift = (mirrorEdge - pixelLinePos).abs() % 4;
-      final sourcePixelId = pixelId - (pixelLinePos - mirrorEdge) - rgbShift;
+      final mirrorBackShift = lineIndex - mirrorEdge;
+      // final rgbShift = (mirrorBackShift % 3) - 3;
+      // final sourcePixelId = pixelId - (mirrorBackShift * 2) + rgbShift;
+      if (mirrorBackShift > rgbWidth) continue;
+      final sourcePixelId = pixelId - (mirrorBackShift * 2);
+      if (sourcePixelId < 2) continue;
 
-      if (sourcePixelId % rgbWidth > pixelId) continue;
+      for (var step in Iterable.generate(3)) {
+        final int indexStep = step;
+        pixels[pixelId - indexStep] = pixels[sourcePixelId - indexStep];
+      }
 
       pixels[pixelId] = pixels[sourcePixelId];
     }
 
-    return src;
+    return img.Image.fromBytes(
+        width: src.width,
+        height: src.height,
+        order: img.ChannelOrder.rgb,
+        bytes: pixels.buffer);
   }
 }
