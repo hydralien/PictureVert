@@ -31,6 +31,7 @@ class PVPage extends StatefulWidget {
 class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   double _inversionRangeSliderValue = 0;
   double _smudgeRangeSliderValue = 50;
+  double _smudgeLineSizeSliderValue = 1;
   double _mirrorRangeSliderValue = 50;
 
   final ScrollController _scrollController =
@@ -76,6 +77,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     resultImagePreview = null;
     _inversionRangeSliderValue = 0;
     _smudgeRangeSliderValue = 50;
+    _smudgeLineSizeSliderValue = 1;
   }
 
   void _resetImages() {
@@ -131,8 +133,8 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
           ImageTools.invertImage(previewData!.clone(), inversionCoefficient());
     }
     if (action == ActionType.smudge) {
-      pendingPreview = ImageTools.smudgeImage(
-          previewData!.clone(), _smudgeRangeSliderValue, true);
+      pendingPreview = ImageTools.smudgeImage(previewData!.clone(),
+          _smudgeRangeSliderValue, true, _smudgeLineSizeSliderValue);
     }
     if (action == ActionType.mirror) {
       pendingPreview = ImageTools.mirrorImage(
@@ -161,8 +163,8 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
             ImageTools.invertImage(imageData!, inversionCoefficient());
       }
       if (action == ActionType.smudge) {
-        convertedData =
-            ImageTools.smudgeImage(imageData!, _smudgeRangeSliderValue, true);
+        convertedData = ImageTools.smudgeImage(imageData!,
+            _smudgeRangeSliderValue, true, _smudgeLineSizeSliderValue);
       }
       if (action == ActionType.mirror) {
         convertedData =
@@ -278,6 +280,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     }
     if (action == ActionType.smudge) {
       configuration.add(_smudgeSlider());
+      configuration.add(_smudgeLineSizeSlider());
     }
     if (action == ActionType.mirror) {
       // _smudgeSlider(),
@@ -308,47 +311,79 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   }
 
   Widget _inversionSlider() {
+    return genericSlider(
+        Icons.monochrome_photos,
+        Slider(
+            value: _inversionRangeSliderValue,
+            max: 100,
+            min: -100,
+            // divisions: 50,
+            label: _inversionRangeSliderValue.round().toString(),
+            onChanged: resultImagePreview != null
+                ? (double value) {
+                    setState(() {
+                      _loadingProcessed = true;
+                      _inversionRangeSliderValue = value;
+                    });
+                  }
+                : null,
+            onChangeEnd: _sliderPostScroll));
+  }
+
+  Widget genericSlider(IconData sliderIcon, Widget specificSlider) {
     if (imagePreview == null) {
       return const SizedBox(width: 0, height: 0);
     }
 
-    return Slider(
-        value: _inversionRangeSliderValue,
-        max: 100,
-        min: -100,
-        // divisions: 50,
-        label: _inversionRangeSliderValue.round().toString(),
-        onChanged: resultImagePreview != null
-            ? (double value) {
-                setState(() {
-                  _loadingProcessed = true;
-                  _inversionRangeSliderValue = value;
-                });
-              }
-            : null,
-        onChangeEnd: _sliderPostScroll);
+    return Row(children: [
+      Padding(
+          padding: const EdgeInsets.only(left: 5),
+          child: Icon(
+            sliderIcon,
+            size: 30.0,
+          )),
+      Expanded(child: specificSlider)
+    ]);
   }
 
   Widget _smudgeSlider() {
-    if (imagePreview == null) {
-      return const SizedBox(width: 0, height: 0);
-    }
+    return genericSlider(
+        Icons.image_not_supported,
+        Slider(
+            value: _smudgeRangeSliderValue,
+            max: 100,
+            min: 0,
+            // divisions: 50,
+            label: _smudgeRangeSliderValue.round().toString(),
+            onChanged: resultImagePreview != null
+                ? (double value) {
+                    setState(() {
+                      _loadingProcessed = true;
+                      _smudgeRangeSliderValue = value;
+                    });
+                  }
+                : null,
+            onChangeEnd: _sliderPostScroll));
+  }
 
-    return Slider(
-        value: _smudgeRangeSliderValue,
-        max: 100,
-        min: 0,
-        // divisions: 50,
-        label: _smudgeRangeSliderValue.round().toString(),
-        onChanged: resultImagePreview != null
-            ? (double value) {
-                setState(() {
-                  _loadingProcessed = true;
-                  _smudgeRangeSliderValue = value;
-                });
-              }
-            : null,
-        onChangeEnd: _sliderPostScroll);
+  Widget _smudgeLineSizeSlider() {
+    return genericSlider(
+        Icons.format_size,
+        Slider(
+            value: _smudgeLineSizeSliderValue,
+            max: 500,
+            min: 1,
+            // divisions: 50,
+            label: _smudgeLineSizeSliderValue.round().toString(),
+            onChanged: resultImagePreview != null
+                ? (double value) {
+                    setState(() {
+                      _loadingProcessed = true;
+                      _smudgeLineSizeSliderValue = value;
+                    });
+                  }
+                : null,
+            onChangeEnd: _sliderPostScroll));
   }
 
   @override

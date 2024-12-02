@@ -25,9 +25,12 @@ class ImageTools {
   }
 
   static img.Image smudgeImage(
-      img.Image src, num smudgeStartPct, bool horizontal) {
+      img.Image src, num smudgeStartPct, bool horizontal, num lineSize) {
     final rgbWidth = src.width * 3;
     final pixels = src.getBytes(order: img.ChannelOrder.rgb);
+    // final jitter = 10;
+    final lineThicknessPct = lineSize / 100;
+    final lineThickness = (src.height * lineThicknessPct / 100).floor();
 
     var rnd = Random();
 
@@ -35,15 +38,20 @@ class ImageTools {
     while (pixelId < pixels.length - 1) {
       pixelId += 1;
       var pixelLinePos = pixelId % rgbWidth;
-      var inSmudge = pixelLinePos >
-          (rgbWidth * ((smudgeStartPct + rnd.nextInt(10)) / 100));
+      final lineNo = (pixelId / rgbWidth).floor();
+      final lineSizeShift =
+          lineThickness == 0 ? 0 : (lineNo % lineThickness) * rgbWidth;
+      final lineJitter = 0; // rnd.nextInt(jitter)
+
+      var inSmudge =
+          pixelLinePos > (rgbWidth * ((smudgeStartPct + lineJitter) / 100));
 
       if (!inSmudge) continue;
       if (pixelId < 3) continue;
       // var pixel = pixels[pixelId];
       // if ((pixelId + 1) % 4 == 0) continue; // alpha channel
 
-      pixels[pixelId] = pixels[pixelId - 3];
+      pixels[pixelId] = pixels[pixelId - 3 - lineSizeShift];
     }
 
     return img.Image.fromBytes(
