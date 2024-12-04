@@ -30,8 +30,11 @@ class PVPage extends StatefulWidget {
 
 class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   double _inversionRangeSliderValue = 0;
+
   double _smudgeRangeSliderValue = 50;
   double _smudgeLineSizeSliderValue = 1;
+  Direction _actionDirection = Direction.right;
+
   double _mirrorRangeSliderValue = 50;
 
   final ScrollController _scrollController =
@@ -78,6 +81,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     _inversionRangeSliderValue = 0;
     _smudgeRangeSliderValue = 50;
     _smudgeLineSizeSliderValue = 1;
+    _actionDirection = Direction.right;
   }
 
   void _resetImages() {
@@ -129,16 +133,19 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     var pendingPreview = previewData!.clone();
 
     if (action == ActionType.invert) {
-      pendingPreview =
-          ImageTools.invertImage(previewData!.clone(), inversionCoefficient());
+      pendingPreview = ImageTools.invertImage(
+          src: previewData!.clone(), shiftCoefficient: inversionCoefficient());
     }
     if (action == ActionType.smudge) {
-      pendingPreview = ImageTools.smudgeImage(previewData!.clone(),
-          _smudgeRangeSliderValue, true, _smudgeLineSizeSliderValue);
+      pendingPreview = ImageTools.smudgeImage(
+          src: previewData!.clone(),
+          smudgeStartPct: _smudgeRangeSliderValue,
+          direction: _actionDirection,
+          lineSize: _smudgeLineSizeSliderValue);
     }
     if (action == ActionType.mirror) {
       pendingPreview = ImageTools.mirrorImage(
-          previewData!.clone(), _mirrorRangeSliderValue, true);
+          src: previewData!.clone(), direction: _actionDirection);
     }
 
     return setState(() {
@@ -159,16 +166,19 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
       var convertedData = imageData!;
 
       if (action == ActionType.invert) {
-        convertedData =
-            ImageTools.invertImage(imageData!, inversionCoefficient());
+        convertedData = ImageTools.invertImage(
+            src: imageData, shiftCoefficient: inversionCoefficient());
       }
       if (action == ActionType.smudge) {
-        convertedData = ImageTools.smudgeImage(imageData!,
-            _smudgeRangeSliderValue, true, _smudgeLineSizeSliderValue);
+        convertedData = ImageTools.smudgeImage(
+            src: imageData,
+            smudgeStartPct: _smudgeRangeSliderValue,
+            direction: _actionDirection,
+            lineSize: _smudgeLineSizeSliderValue);
       }
       if (action == ActionType.mirror) {
         convertedData =
-            ImageTools.mirrorImage(imageData!, _mirrorRangeSliderValue, true);
+            ImageTools.mirrorImage(src: imageData, direction: _actionDirection);
       }
 
       var convertedJpeg = Uint8List.fromList(img.encodeJpg(convertedData));
@@ -252,6 +262,50 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     // return const SizedBox(width: 0, height: 0);
   }
 
+  Widget _directionGroup() {
+    onChanged(Direction value) {
+      setState(() {
+        _actionDirection = value;
+        generatePreview();
+      });
+    }
+
+    return Column(children: [
+      Row(
+          // mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            Expanded(child: Text("")),
+            Radio<Direction>(
+                value: Direction.right,
+                groupValue: _actionDirection,
+                onChanged: (value) => onChanged(value!)),
+            Text("R"),
+            Expanded(child: Text("")),
+            Radio<Direction>(
+              value: Direction.left,
+              groupValue: _actionDirection,
+              onChanged: (value) => onChanged(value!),
+            ),
+            Text("L"),
+            Expanded(child: Text("")),
+            Radio<Direction>(
+              value: Direction.up,
+              groupValue: _actionDirection,
+              onChanged: (value) => onChanged(value!),
+            ),
+            Text("U"),
+            Expanded(child: Text("")),
+            Radio<Direction>(
+              value: Direction.down,
+              groupValue: _actionDirection,
+              onChanged: (value) => onChanged(value!),
+            ),
+            Text("D"),
+            Expanded(child: Text("")),
+          ])
+    ]);
+  }
+
   Widget _actionTabs() {
     return Column(children: [
       TabBar(
@@ -281,9 +335,10 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     if (action == ActionType.smudge) {
       configuration.add(_smudgeSlider());
       configuration.add(_smudgeLineSizeSlider());
+      configuration.add(_directionGroup());
     }
     if (action == ActionType.mirror) {
-      // _smudgeSlider(),
+      configuration.add(_directionGroup());
     }
 
     return [

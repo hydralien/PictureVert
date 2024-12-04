@@ -2,8 +2,57 @@ import 'dart:math';
 
 import 'package:image/image.dart' as img;
 
+enum Direction { right, left, up, down }
+
 class ImageTools {
-  static img.Image invertImage(img.Image src, num shiftCoefficient) {
+  static img.Image prepImage(
+      {required img.Image src, required Direction direction}) {
+    if (direction == Direction.right) return src;
+    if (direction == Direction.left) {
+      return img.copyFlip(src, direction: img.FlipDirection.horizontal);
+    }
+    if (direction == Direction.up) {
+      return img.copyRotate(
+        src,
+        angle: 90,
+        // interpolation: img.Interpolation.cubic
+      );
+    }
+    if (direction == Direction.down) {
+      return img.copyRotate(
+        src,
+        angle: -90,
+        // interpolation: img.Interpolation.cubic
+      );
+    }
+    return src;
+  }
+
+  static img.Image unprepImage(
+      {required img.Image src, required Direction direction}) {
+    if (direction == Direction.right) return src;
+    if (direction == Direction.left) {
+      return img.copyFlip(src, direction: img.FlipDirection.horizontal);
+    }
+    if (direction == Direction.up) {
+      return img.copyRotate(
+        src,
+        angle: -90,
+        // interpolation: img.Interpolation.cubic
+      );
+    }
+    if (direction == Direction.down) {
+      return img.copyRotate(
+        src,
+        angle: 90,
+        // interpolation: img.Interpolation.cubic
+      );
+    }
+    return src;
+  }
+
+  static img.Image invertImage(
+      {required img.Image src, required num shiftCoefficient}) {
     final pixels = src.getBytes(order: img.ChannelOrder.rgb);
 
     int pixelId = -1;
@@ -25,12 +74,19 @@ class ImageTools {
   }
 
   static img.Image smudgeImage(
-      img.Image src, num smudgeStartPct, bool horizontal, num lineSize) {
-    final rgbWidth = src.width * 3;
-    final pixels = src.getBytes(order: img.ChannelOrder.rgb);
+      {required img.Image src,
+      num smudgeStartPct = 50,
+      Direction direction = Direction.right,
+      num lineSize = 1}) {
+    final adjustedSmudgeStart =
+        direction == Direction.left ? 100 - smudgeStartPct : smudgeStartPct;
+    final preppedImage = prepImage(src: src, direction: direction);
+    final rgbWidth = preppedImage.width * 3;
+    final pixels = preppedImage.getBytes(order: img.ChannelOrder.rgb);
     // final jitter = 10;
     final lineThicknessPct = lineSize / 100;
-    final lineThickness = (src.height * lineThicknessPct / 100).floor();
+    final lineThickness =
+        (preppedImage.height * lineThicknessPct / 100).floor();
 
     var rnd = Random();
 
@@ -43,8 +99,8 @@ class ImageTools {
           lineThickness == 0 ? 0 : (lineNo % lineThickness) * rgbWidth;
       final lineJitter = 0; // rnd.nextInt(jitter)
 
-      var inSmudge =
-          pixelLinePos > (rgbWidth * ((smudgeStartPct + lineJitter) / 100));
+      var inSmudge = pixelLinePos >
+          (rgbWidth * ((adjustedSmudgeStart + lineJitter) / 100));
 
       if (!inSmudge) continue;
       if (pixelId < 3) continue;
@@ -54,19 +110,25 @@ class ImageTools {
       pixels[pixelId] = pixels[pixelId - 3 - lineSizeShift];
     }
 
-    return img.Image.fromBytes(
-        width: src.width,
-        height: src.height,
-        order: img.ChannelOrder.rgb,
-        bytes: pixels.buffer);
+    return unprepImage(
+        src: img.Image.fromBytes(
+            width: preppedImage.width,
+            height: preppedImage.height,
+            order: img.ChannelOrder.rgb,
+            bytes: pixels.buffer),
+        direction: direction);
   }
 
   static img.Image mirrorImage(
-      img.Image src, num mirrorStartPct, bool horizontal) {
+      {required img.Image src,
+      num mirrorStartPct = 50,
+      Direction direction = Direction.right}) {
+    final preppedImage = prepImage(src: src, direction: direction);
     final pixelSize = 3; // RGB
-    final rgbWidth = src.width * pixelSize;
-    final pixels = src.getBytes(order: img.ChannelOrder.rgb);
-    final mirrorEdge = (src.width * (mirrorStartPct / 100)).floor() * pixelSize;
+    final rgbWidth = preppedImage.width * pixelSize;
+    final pixels = preppedImage.getBytes(order: img.ChannelOrder.rgb);
+    final mirrorEdge =
+        (preppedImage.width * (mirrorStartPct / 100)).floor() * pixelSize;
 
     int pixelId = -1;
     while (pixelId < pixels.length - 1) {
@@ -94,10 +156,12 @@ class ImageTools {
       pixels[pixelId] = pixels[sourcePixelId];
     }
 
-    return img.Image.fromBytes(
-        width: src.width,
-        height: src.height,
-        order: img.ChannelOrder.rgb,
-        bytes: pixels.buffer);
+    return unprepImage(
+        src: img.Image.fromBytes(
+            width: preppedImage.width,
+            height: preppedImage.height,
+            order: img.ChannelOrder.rgb,
+            bytes: pixels.buffer),
+        direction: direction);
   }
 }
