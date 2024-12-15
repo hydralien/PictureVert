@@ -81,6 +81,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     _inversionRangeSliderValue = 0;
     _smudgeRangeSliderValue = 50;
     _smudgeLineSizeSliderValue = 1;
+    _jitterSliderValue = 0;
     _actionDirection = Direction.right;
   }
 
@@ -269,6 +270,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
       setState(() {
         _actionDirection = value;
         generatePreview();
+        _sliderPostScroll(0);
       });
     }
 
