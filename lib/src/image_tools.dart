@@ -4,6 +4,8 @@ import 'package:image/image.dart' as img;
 
 enum Direction { right, left, up, down }
 
+const pixelSize = 3; // RGB
+
 class ImageTools {
   static img.Image prepImage(
       {required img.Image src, required Direction direction}) {
@@ -77,37 +79,85 @@ class ImageTools {
       {required img.Image src,
       num smudgeStartPct = 50,
       Direction direction = Direction.right,
-      num lineSize = 1}) {
+      num lineSize = 1,
+      num jitter = 0}) {
     final adjustedSmudgeStart =
         direction == Direction.left ? 100 - smudgeStartPct : smudgeStartPct;
     final preppedImage = prepImage(src: src, direction: direction);
-    final rgbWidth = preppedImage.width * 3;
+    final rgbWidth = preppedImage.width * pixelSize;
     final pixels = preppedImage.getBytes(order: img.ChannelOrder.rgb);
-    // final jitter = 10;
     final lineThicknessPct = lineSize / 100;
     final lineThickness =
         (preppedImage.height * lineThicknessPct / 100).floor();
+    final maxLineThickness = max(lineThickness, 1);
 
-    var rnd = Random();
+    final rnd = Random();
+    int getJitter(num lineNo) {
+      // Wavy line - maybe some day
+      // final smoothValue = log(lineNo * 100) / log(10);
+      // final smoothValue = lineNo * 50;
+      // final jitterBase = sin(smoothValue);
+      // final jitterResult = jitterBase * jitter;
+      // return jitterResult.floor();
+      final smoothValue = ((jitter / 10) * preppedImage.width) / 100;
+      final jitterBase = rnd.nextDouble() * smoothValue;
+      return (jitterBase).toInt();
+    }
 
-    int pixelId = -1;
-    while (pixelId < pixels.length - 1) {
-      pixelId += 1;
-      var pixelLinePos = pixelId % rgbWidth;
-      final lineNo = (pixelId / rgbWidth).floor();
-      final lineSizeShift =
-          lineThickness == 0 ? 0 : (lineNo % lineThickness) * rgbWidth;
-      final lineJitter = 0; // rnd.nextInt(jitter)
+    final List<(int r, int g, int b, int j)> lineColors = [];
 
-      var inSmudge = pixelLinePos >
-          (rgbWidth * ((adjustedSmudgeStart + lineJitter) / 100));
+    var lineNo = 1;
+    var lineJitter = getJitter(0);
+    while (lineNo <= preppedImage.height) {
+      var smudgePos =
+          (preppedImage.width * ((adjustedSmudgeStart + lineJitter) / 100))
+                  .floor() *
+              pixelSize;
+      if (smudgePos >= preppedImage.width * pixelSize) {
+        smudgePos = (preppedImage.width * pixelSize) - pixelSize;
+      }
+      if (lineNo == 1 || lineNo % maxLineThickness == 0) {
+        lineJitter = getJitter(lineNo / preppedImage.height);
+        lineColors.add((0, 0, 0, lineJitter));
+      }
+      final lineColor = lineColors[lineColors.length - 1];
+      final pixelSmudgePos = smudgePos * lineNo;
+      lineColors[lineColors.length - 1] = (
+        lineColor.$1 + (pixels[pixelSmudgePos] / maxLineThickness).floor(),
+        lineColor.$2 + (pixels[pixelSmudgePos + 1] / maxLineThickness).floor(),
+        lineColor.$3 + (pixels[pixelSmudgePos + 2] / maxLineThickness).floor(),
+        lineColor.$4
+      );
+      lineNo += 1;
+    }
 
-      if (!inSmudge) continue;
-      if (pixelId < 3) continue;
-      // var pixel = pixels[pixelId];
-      // if ((pixelId + 1) % 4 == 0) continue; // alpha channel
+    for (var lineNo in Iterable.generate(preppedImage.height)) {
+      final lineColorIndex = (lineNo / maxLineThickness).floor();
+      final lineColor = lineColors[lineColorIndex];
+      final lineJitter = lineColor.$4;
 
-      pixels[pixelId] = pixels[pixelId - 3 - lineSizeShift];
+      final smudgePos =
+          (preppedImage.width * ((adjustedSmudgeStart + lineJitter) / 100))
+                  .floor() *
+              pixelSize;
+      print({
+        "smudgePos": smudgePos,
+        "lineJitter": lineJitter,
+        "lineNo": lineNo,
+        "rgbWidth": rgbWidth,
+        "preppedImage.width": preppedImage.width
+      });
+      for (var pixelLinePos in Iterable.generate(rgbWidth)) {
+        final pixelId = lineNo * rgbWidth + pixelLinePos;
+
+        var inSmudge = pixelLinePos >= smudgePos;
+
+        if (!inSmudge) continue;
+        if (pixelId < pixelSize) continue;
+
+        final lineColorRgb = [lineColor.$1, lineColor.$2, lineColor.$3];
+        pixels[pixelId] = lineColorRgb[pixelId % pixelSize];
+      }
     }
 
     return unprepImage(
@@ -124,7 +174,6 @@ class ImageTools {
       num mirrorStartPct = 50,
       Direction direction = Direction.right}) {
     final preppedImage = prepImage(src: src, direction: direction);
-    final pixelSize = 3; // RGB
     final rgbWidth = preppedImage.width * pixelSize;
     final pixels = preppedImage.getBytes(order: img.ChannelOrder.rgb);
     final mirrorEdge =
@@ -142,13 +191,13 @@ class ImageTools {
       if (!pastMirror) continue;
 
       final mirrorBackShift = lineIndex - mirrorEdge;
-      // final rgbShift = (mirrorBackShift % 3) - 3;
+      // final rgbShift = (mirrorBackShift % pixelSize) - pixelSize;
       // final sourcePixelId = pixelId - (mirrorBackShift * 2) + rgbShift;
       if (mirrorBackShift > rgbWidth) continue;
       final sourcePixelId = pixelId - (mirrorBackShift * 2);
       if (sourcePixelId < 2) continue;
 
-      for (var step in Iterable.generate(3)) {
+      for (var step in Iterable.generate(pixelSize)) {
         final int indexStep = step;
         pixels[pixelId - indexStep] = pixels[sourcePixelId - indexStep];
       }

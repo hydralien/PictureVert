@@ -35,7 +35,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   double _smudgeLineSizeSliderValue = 1;
   Direction _actionDirection = Direction.right;
 
-  double _mirrorRangeSliderValue = 50;
+  double _jitterSliderValue = 0;
 
   final ScrollController _scrollController =
       ScrollController(keepScrollOffset: true);
@@ -141,7 +141,8 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
           src: previewData!.clone(),
           smudgeStartPct: _smudgeRangeSliderValue,
           direction: _actionDirection,
-          lineSize: _smudgeLineSizeSliderValue);
+          lineSize: _smudgeLineSizeSliderValue,
+          jitter: _jitterSliderValue);
     }
     if (action == ActionType.mirror) {
       pendingPreview = ImageTools.mirrorImage(
@@ -174,7 +175,8 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
             src: imageData,
             smudgeStartPct: _smudgeRangeSliderValue,
             direction: _actionDirection,
-            lineSize: _smudgeLineSizeSliderValue);
+            lineSize: _smudgeLineSizeSliderValue,
+            jitter: _jitterSliderValue);
       }
       if (action == ActionType.mirror) {
         convertedData =
@@ -335,6 +337,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     if (action == ActionType.smudge) {
       configuration.add(_smudgeSlider());
       configuration.add(_smudgeLineSizeSlider());
+      configuration.add(_jitterSlider());
       configuration.add(_directionGroup());
     }
     if (action == ActionType.mirror) {
@@ -406,8 +409,8 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
         Icons.image_not_supported,
         Slider(
             value: _smudgeRangeSliderValue,
-            max: 100,
-            min: 0,
+            max: 99,
+            min: 1,
             // divisions: 50,
             label: _smudgeRangeSliderValue.round().toString(),
             onChanged: resultImagePreview != null
@@ -415,6 +418,26 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
                     setState(() {
                       _loadingProcessed = true;
                       _smudgeRangeSliderValue = value;
+                    });
+                  }
+                : null,
+            onChangeEnd: _sliderPostScroll));
+  }
+
+  Widget _jitterSlider() {
+    return genericSlider(
+        Icons.waves,
+        Slider(
+            value: _jitterSliderValue,
+            max: 50,
+            min: 0,
+            // divisions: 50,
+            label: _jitterSliderValue.round().toString(),
+            onChanged: resultImagePreview != null
+                ? (double value) {
+                    setState(() {
+                      _loadingProcessed = true;
+                      _jitterSliderValue = value;
                     });
                   }
                 : null,
