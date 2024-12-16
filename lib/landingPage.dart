@@ -472,7 +472,10 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text(widget.title,
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+        backgroundColor: Colors.indigo,
+        foregroundColor: Colors.white,
       ),
       body: ListView(
         controller: _scrollController,
