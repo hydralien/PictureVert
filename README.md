@@ -4,9 +4,15 @@
 
 <img src="assets/icon_bw.png" alt="App logo" width="100">
 
-It's an image colour inverter app, which currently does one thing only: inverts color on a chosen image.
+It's an image manipulation app, which currently has few abilities:
+- Selecting any image from the photo gallery.
+- Taking an instant photo and applying effects sto it immediately.
+- Inverting image colors with a variable degree of color shift.
+- Making a multi-direction color trail from any point of picture with varied jitter and thickness.
+- Mirroring halves of the picture in 4 directions.
+- Exporting the result by using standard sharing mechanism.
 
-So it imports an image from a library or camera, inverts colors according to an inversion shift (there's a slider) and exports the image to where required. For both import and export, modules from Flutter community are used.
+For both import and export, modules from Flutter community are used.
 
 ### Flutter
 
