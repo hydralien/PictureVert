@@ -58,6 +58,9 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        return;
+      }
       setState(() {
         _resetPreview();
         _tabIndex = _tabController.index;
@@ -266,6 +269,10 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   }
 
   Widget _directionGroup() {
+    if (imagePreview == null) {
+      return const SizedBox(width: 0, height: 0);
+    }
+
     onChanged(Direction value) {
       setState(() {
         _actionDirection = value;
@@ -312,20 +319,22 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
 
   Widget _actionTabs() {
     return Column(children: [
-      TabBar(
-        controller: _tabController,
-        tabs: const <Widget>[
-          Tab(
-            icon: Icon(Icons.monochrome_photos),
-          ),
-          Tab(
-            icon: Icon(Icons.image_not_supported),
-          ),
-          Tab(
-            icon: Icon(Icons.star_half),
-          ),
-        ],
-      ),
+      IgnorePointer(
+          ignoring: imagePreview == null,
+          child: TabBar(
+            controller: _tabController,
+            tabs: const <Widget>[
+              Tab(
+                icon: Icon(Icons.monochrome_photos),
+              ),
+              Tab(
+                icon: Icon(Icons.image_not_supported),
+              ),
+              Tab(
+                icon: Icon(Icons.star_half),
+              ),
+            ],
+          )),
     ]);
   }
 
