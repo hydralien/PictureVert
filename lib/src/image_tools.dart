@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:image/image.dart' as img;
 
-enum Direction { right, left, up, down }
+enum Direction { none, right, left, up, down }
 
 const pixelSize = 3; // RGB
 
@@ -172,10 +172,12 @@ class ImageTools {
         direction: direction);
   }
 
-  static img.Image mirrorImage(
-      {required img.Image src,
-      num mirrorStartPct = 50,
-      Direction direction = Direction.right}) {
+  static img.Image mirrorImage({
+    required img.Image src,
+    num mirrorStartPct = 50,
+    Direction direction = Direction.right,
+    Direction secondaryDirection = Direction.none,
+  }) {
     final preppedImage = prepImage(src: src, direction: direction);
     final rgbWidth = preppedImage.width * pixelSize;
     final pixels = preppedImage.getBytes(order: img.ChannelOrder.rgb);
@@ -208,12 +210,22 @@ class ImageTools {
       pixels[pixelId] = pixels[sourcePixelId];
     }
 
-    return unprepImage(
+    var firstStageImage = unprepImage(
         src: img.Image.fromBytes(
             width: preppedImage.width,
             height: preppedImage.height,
             order: img.ChannelOrder.rgb,
             bytes: pixels.buffer),
         direction: direction);
+
+    if (secondaryDirection == Direction.none) {
+      return firstStageImage;
+    }
+
+    return mirrorImage(
+        src: firstStageImage,
+        mirrorStartPct: mirrorStartPct,
+        direction: secondaryDirection,
+        secondaryDirection: Direction.none);
   }
 }

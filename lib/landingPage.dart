@@ -34,6 +34,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
   double _smudgeRangeSliderValue = 50;
   double _smudgeLineSizeSliderValue = 1;
   Direction _actionDirection = Direction.right;
+  Direction _secondaryActionDirection = Direction.none;
 
   double _jitterSliderValue = 0;
 
@@ -86,6 +87,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     _smudgeLineSizeSliderValue = 1;
     _jitterSliderValue = 0;
     _actionDirection = Direction.right;
+    _secondaryActionDirection = Direction.none;
   }
 
   void _resetImages() {
@@ -150,7 +152,9 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     }
     if (action == ActionType.mirror) {
       pendingPreview = ImageTools.mirrorImage(
-          src: previewData!.clone(), direction: _actionDirection);
+          src: previewData!.clone(),
+          direction: _actionDirection,
+          secondaryDirection: _secondaryActionDirection);
     }
 
     return setState(() {
@@ -183,8 +187,10 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
             jitter: _jitterSliderValue);
       }
       if (action == ActionType.mirror) {
-        convertedData =
-            ImageTools.mirrorImage(src: imageData, direction: _actionDirection);
+        convertedData = ImageTools.mirrorImage(
+            src: imageData,
+            direction: _actionDirection,
+            secondaryDirection: _secondaryActionDirection);
       }
 
       var convertedJpeg = Uint8List.fromList(img.encodeJpg(convertedData));
@@ -317,6 +323,74 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     ]);
   }
 
+  Widget _secondaryDirectionGroup() {
+    if (imagePreview == null) {
+      return const SizedBox(width: 0, height: 0);
+    }
+
+    onChanged(Direction value) {
+      setState(() {
+        _secondaryActionDirection = value;
+        generatePreview();
+        _sliderPostScroll(0);
+      });
+    }
+
+    List<Widget> secondDirectionComponents = [
+      Radio<Direction>(
+        value: Direction.right,
+        groupValue: _secondaryActionDirection,
+        onChanged: (value) => onChanged(value!),
+      ),
+      Text("R"),
+      Expanded(child: Text("")),
+      Radio<Direction>(
+        value: Direction.left,
+        groupValue: _secondaryActionDirection,
+        onChanged: (value) => onChanged(value!),
+      ),
+      Text("L"),
+      Expanded(child: Text("")),
+    ];
+
+    if (_actionDirection == Direction.right ||
+        _actionDirection == Direction.left) {
+      secondDirectionComponents = [
+        Radio<Direction>(
+          value: Direction.up,
+          groupValue: _secondaryActionDirection,
+          onChanged: (value) => onChanged(value!),
+        ),
+        Text("U"),
+        Expanded(child: Text("")),
+        Radio<Direction>(
+          value: Direction.down,
+          groupValue: _secondaryActionDirection,
+          onChanged: (value) => onChanged(value!),
+        ),
+        Text("D"),
+        Expanded(child: Text("")),
+      ];
+    }
+
+    return Column(children: [
+      Row(
+          // mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            Expanded(child: Text("")),
+            Text("2nd:", style: TextStyle(fontWeight: FontWeight.bold)),
+            Expanded(child: Text("")),
+            Radio<Direction>(
+                value: Direction.none,
+                groupValue: _secondaryActionDirection,
+                onChanged: (value) => onChanged(value!)),
+            Text("None"),
+            Expanded(child: Text("")),
+            ...secondDirectionComponents
+          ])
+    ]);
+  }
+
   Widget _actionTabs() {
     return Column(children: [
       IgnorePointer(
@@ -353,6 +427,7 @@ class _PVPageState extends State<PVPage> with TickerProviderStateMixin {
     }
     if (action == ActionType.mirror) {
       configuration.add(_directionGroup());
+      configuration.add(_secondaryDirectionGroup());
     }
 
     return [
