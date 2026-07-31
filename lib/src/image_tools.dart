@@ -89,25 +89,14 @@ class ImageTools {
     final lineThickness =
         (preppedImage.height * lineThicknessPct / 100).floor();
     final maxLineThickness = max(lineThickness, 1);
-    // Leaving for maybe some day?
-    final colorAverage = true;
-    // final colorAverage = false;
-
     final rnd = Random();
     num getJitter(num lineNo) {
-      // Wavy line - maybe some day
-      // final smoothValue = log(lineNo * 100) / log(10);
-      // final smoothValue = lineNo * 50;
-      // final jitterBase = sin(smoothValue);
-      // final jitterResult = jitterBase * jitter;
-      // return jitterResult.floor();
       final jitterBase = rnd.nextDouble() * jitter;
       return jitterBase;
     }
 
     final List<(int r, int g, int b, int smudgePos)> lineColors = [];
 
-    // var lineNo = 1;
     var lineJitter = getJitter(0);
     for (var lineNo in Iterable.generate(preppedImage.height)) {
       var smudgePos =
@@ -121,18 +110,8 @@ class ImageTools {
       final pixelSmudgePos = (rgbWidth * lineNo + smudgePos).toInt();
       if (lineNo % maxLineThickness == 0) {
         lineJitter = getJitter(lineNo / preppedImage.height);
-        if (colorAverage) {
-          lineColors.add((0, 0, 0, smudgePos));
-        } else {
-          lineColors.add((
-            pixels[pixelSmudgePos],
-            pixels[pixelSmudgePos + 1],
-            pixels[pixelSmudgePos + 2],
-            smudgePos
-          ));
-        }
+        lineColors.add((0, 0, 0, smudgePos));
       }
-      if (!colorAverage) continue;
 
       final lineColor = lineColors[lineColors.length - 1];
 

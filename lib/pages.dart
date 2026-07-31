@@ -1,1 +1,1 @@
-export "./landingPage.dart";
+export "./landing_page.dart";
